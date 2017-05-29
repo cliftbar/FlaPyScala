@@ -114,7 +114,7 @@ package object hurricaneNws23 {
       val phiIntermediate = (x3 * math.pow((rNmiUse - rPhiMax), 3)) + (x2 * math.pow((rNmiUse - rPhiMax), 2)) + (x1 * (rNmiUse - rPhiMax)) + c
 
       val phiTemp = if (130 < r_nmi && r_nmi < 360) { // justification on NWS23 pdf page 287 page 263
-        val deltaPhi = linearInterpolation(r_nmi, 130, 360, phiTemp, (phiTemp - 2))
+        val deltaPhi = linearInterpolation(r_nmi, 130, 360, phiIntermediate, (phiIntermediate - 2))
         phiIntermediate + deltaPhi
       } else if (360 <= r_nmi) {
         phiIntermediate - 2
@@ -188,7 +188,7 @@ package object hurricaneNws23 {
     * @param gwaf (0.9) Gradient Wind Adjustment Factor, semi-emprical adjustment to the Gradient Wind. Range 0.75-1.05, Generally between 0.9 and 1. NWS 23 pdf page 50, page 24, 2.2.7.2.1
     * @return
     */
-  def calcWindspeed(r_nmi:Double, lat_deg:Double, fSpeed_kts:Double, rMax_nmi:Double, angleToCenter:Double, trackHeading:Double, vgxMax_kts:Double, gwaf:Double = 0.9):Double = {
+  def calcWindspeed(r_nmi:Double, lat_deg:Double, fSpeed_kts:Double, rMax_nmi:Double, angleToCenter:Double, trackHeading:Double, vgxMax_kts:Double, gwaf:Double):Double = {
     val radial_decay_factor = radialDecay(r_nmi, rMax_nmi)
     val asym = asymmetryFactor(fSpeed_kts, r_nmi, rMax_nmi, angleToCenter, trackHeading)
 
