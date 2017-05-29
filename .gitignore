@@ -41,3 +41,5 @@ project/plugins/project/
 .cache
 .lib/
 /project/
+!/project/build.properties
+!/project/plugins.sbt
