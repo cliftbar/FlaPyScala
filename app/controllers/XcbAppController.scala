@@ -22,4 +22,12 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
   def helloLib = Action {
     Ok(app.libHello)
   }
+
+  def hurTest = Action { request =>
+    println("here no")
+    val json = request.body.asJson
+    //val ls = user.map(x => x.split('|').toList.map)
+    println(json)
+    Ok(app.hurrTest())
+  }
 }
