@@ -3,6 +3,8 @@ package controllers
 import javax.inject._
 import xcb_app._
 import play.api.mvc._
+import play.api.libs.json._
+import xcb_app.hurricane._
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -23,11 +25,21 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     Ok(app.libHello)
   }
 
-  def hurTest = Action { request =>
-    println("here no")
-    val json = request.body.asJson
+  def hurTest = Action(parse.json) { request =>
+    println("here now")
+    val trackPoints = (request.body \ "track").validate[Seq[TrackPoint]].get//.asOpt.get
+    val bBoxJson = (request.body \ "BBox").get
+    val bBox = new BoundingBox((bBoxJson \ "topLatY").as[Double], (bBoxJson \ "botLatY").as[Double], (bBoxJson\ "leftLonX").as[Double], (bBoxJson \ "rightLonX").as[Double])
+    val fSpeed_kts = (request.body \ "fspeed").asOpt()
+    val rMax_nmi = (request.body \ "rmax").as[Double]
+
+    println(bBox.leftLonX)
+    //for (tp in trackPoints)
+    Ok(app.hurrTest(trackPoints, bBox, fSpeed_kts, rMax_nmi))
+
     //val ls = user.map(x => x.split('|').toList.map)
-    println(json)
-    Ok(app.hurrTest())
+
+    //val trackPoints = (json.get \ "track").get.as[]
+
   }
 }

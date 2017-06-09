@@ -114,7 +114,7 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
   def PointMap(tp:TrackPoint, pointLatY:Double, pointLonX:Double, rMax_nmi:Int):(Double, Double, Int) = {
     val distance_nmi = HurricaneUtilities.haversine_degrees_to_meters(pointLatY, pointLonX, tp.eyeLat_y, tp.eyeLon_x) / 1000 * 0.539957
     val angleToCenter = HurricaneUtilities.calc_bearing_great_circle(tp.eyeLat_y, tp.eyeLon_x, pointLatY, pointLonX)
-    val maxWind = nws.calcWindspeed(distance_nmi, tp.eyeLat_y, tp.fSpeed_kts, rMax_nmi, angleToCenter, tp.heading, tp.maxWind_kts, tp.gwaf)
+    val maxWind = nws.calcWindspeed(distance_nmi, tp.eyeLat_y, tp.fSpeed_kts, rMax_nmi, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
 
     return (pointLatY, pointLonX, math.min(math.max(maxWind, 0), 255).toInt)
   }

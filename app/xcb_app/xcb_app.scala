@@ -2,8 +2,11 @@ package xcb_app
 
 import javax.inject._
 
+import xcb_app.hurricane.BoundingBox
 import xcb_app.{LibraryClass => lc}
 import xcb_app.{hurricane => hur}
+import xcb_app.{hurricaneNws23 => nws}
+
 /**
   * Created by cameron.barclift on 5/5/2017.
   */
@@ -20,12 +23,13 @@ class xcb_app {
     lc.Hello
   }
 
-  def hurrTest():String = {
+  def hurrTest(trackPoints:Seq[hur.TrackPoint], bBox:BoundingBox, fSpeed_kts:Option[Double], rMax_nmi:Double):String = {
     println("In Function")
+    println(rMax_nmi)
+    println(fSpeed_kts)
+    println(bBox.leftLonX)
+    println(trackPoints(0))
+    //val calcs = trackPoints.map(x => )
     return "hurrTestWorked"
-//    val tps = List.empty
-//    val grid = new hur.LatLonGrid(10, 15, 10, 15, 10, 10)
-//    var event = new hur.HurricaneEvent(grid, tps, 15)
-//    event.DoCalcs()
   }
 }
