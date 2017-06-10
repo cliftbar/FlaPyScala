@@ -30,7 +30,7 @@ case class TrackPoint(
                        , gwaf:Double
                        , heading:Option[Double]
 )
-//time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm")
+
 object TrackPoint {
   val formatter=DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm")
   val dtReads = Reads[LocalDateTime](js =>

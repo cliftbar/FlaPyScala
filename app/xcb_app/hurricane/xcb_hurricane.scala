@@ -77,15 +77,19 @@ class LatLonGrid(topLatY:Double, botLatY:Double, leftLonX:Double, rightLonX:Doub
   def GetHeightInBlocks:Int = {(this.GetHeight * this.BlockPerDegreeY).toInt}
 
   def GetLatLonList:List[(Double,Double)] = { //List[(Double,Double)]
-    val grid = List.fill(this.GetHeightInBlocks)(List.range(0, this.GetWidthInBlocks)).zipWithIndex.flatMap( {case (inner, outerIndex) => inner.map( innerIndex => (innerIndex, outerIndex))} )
-    return grid.map(x => this.GetBlockLatLon(x._1, x._2))
+    val height = this.GetHeightInBlocks
+    val width = this.GetWidthInBlocks
+    //val grid = List.fill(height)(List.range(0, width)).zipWithIndex
+    //val grid2 = grid.flatMap( {case (inner, outerIndex) => inner.map( innerIndex => (innerIndex, outerIndex))} )
+    val grid3 = List.fill(height)(List.range(0,width)).zipWithIndex.flatMap(x => x._1.map(y => (y, x._2)))
+    return grid3.map(x => this.GetBlockLatLon(x._1, x._2))
   }
 
 }
 /**
   * Created by cameron.barclift on 5/12/2017.
   */
-class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val rMax_nmi:Int) {
+class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val rMax_nmi:Double) {
 
   def AddTrackPoint(tp:TrackPoint):HurricaneEvent = {
     return new HurricaneEvent(this.grid, this.trackPoints ::: List(tp), this.rMax_nmi)
@@ -96,8 +100,11 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
   }
 
   def DoCalcs():Unit = {
+    println("DoCalcs")
     val latLonList = this.grid.GetLatLonList
+    println("LatLonList")
     val CalcedResults = latLonList.map(x => TrackMap(this.trackPoints, x._1, x._2, 15))
+    println("calced")
 
     val writer = new FileWriter("testOut.txt")
     writer.write("LatY\tLonX\twind_kts\n")
@@ -105,6 +112,15 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     for (x <- CalcedResults) {
       writer.write(s"${x._1}\t${x._2}\t${x._3}\n")
     }
+
+//    for (x <- latLonList) {
+//      val point = TrackMap(this.trackPoints, x._1, x._2, 15)
+//      writer.write(s"${point._1}\t${point._2}\t${point._3}\n")
+//    }
+
+    writer.close()
+
+    println("written")
   }
 
   def TrackMap(tps:List[TrackPoint], pointLatY:Double, pointLonX:Double, rMax_nmi:Int):(Double, Double, Int) = {

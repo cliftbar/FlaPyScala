@@ -30,12 +30,12 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     val trackPoints = (request.body \ "track").validate[Seq[TrackPoint]].get//.asOpt.get
     val bBoxJson = (request.body \ "BBox").get
     val bBox = new BoundingBox((bBoxJson \ "topLatY").as[Double], (bBoxJson \ "botLatY").as[Double], (bBoxJson\ "leftLonX").as[Double], (bBoxJson \ "rightLonX").as[Double])
-    val fSpeed_kts = (request.body \ "fspeed").asOpt()
+    val fSpeed_kts = (request.body \ "fspeed").as[Double]
     val rMax_nmi = (request.body \ "rmax").as[Double]
 
     println(bBox.leftLonX)
     //for (tp in trackPoints)
-    Ok(app.hurrTest(trackPoints, bBox, fSpeed_kts, rMax_nmi))
+    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi))
 
     //val ls = user.map(x => x.split('|').toList.map)
 

@@ -5,7 +5,7 @@ import javax.inject._
 import xcb_app.hurricane.BoundingBox
 import xcb_app.{LibraryClass => lc}
 import xcb_app.{hurricane => hur}
-import xcb_app.{hurricaneNws23 => nws}
+import java.time
 
 /**
   * Created by cameron.barclift on 5/5/2017.
@@ -29,7 +29,12 @@ class xcb_app {
     println(fSpeed_kts)
     println(bBox.leftLonX)
     println(trackPoints(0))
-    //val calcs = trackPoints.map(x => )
+    println(time.LocalDateTime.now())
+    val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, 100, 100)
+    val event = new hur.HurricaneEvent(grid, trackPoints.toList, rMax_nmi)
+    event.DoCalcs()
+    println(time.LocalDateTime.now())
+    println("Did test")
     return "hurrTestWorked"
   }
 }
