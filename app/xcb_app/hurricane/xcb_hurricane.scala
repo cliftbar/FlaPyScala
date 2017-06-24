@@ -124,7 +124,8 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     println("DoCalcs")
     val latLonList = this.grid.GetLatLonList
     println("LatLonList")
-    val CalcedResults = latLonList.map(x => TrackMap(x._1, x._2, this.rMax_nmi))
+    val CalcedResults = latLonList.map(x => TrackMap(this.trackPoints, x._1, x._2, this.rMax_nmi.toInt))
+    //val CalcedTakeTwo = latLonList.map(x => (this.trackPoints, x)).map(x => x._1.map(tp => PointMap(tp, x._2._1, x._2._2, this.rMax_nmi.toInt)).maxBy(pt => pt._3))
     println("calced")
 
     this.WriteToImage(CalcedResults, this.grid.GetWidthInBlocks, this.grid.GetHeightInBlocks)
