@@ -30,7 +30,7 @@ class xcb_app {
     println(bBox.leftLonX)
     println(trackPoints(0))
     println(time.LocalDateTime.now())
-    val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, 100, 100)
+    val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, 10, 10)
     val event = new hur.HurricaneEvent(grid, trackPoints.toList, rMax_nmi)
     event.DoCalcs()
     println(time.LocalDateTime.now())

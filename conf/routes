@@ -13,3 +13,4 @@ GET     /nextCount                           controllers.XcbAppController.nextCo
 GET     /helloApp                           controllers.XcbAppController.helloApp
 GET     /helloLib                           controllers.XcbAppController.helloLib
 POST /hurTest    controllers.XcbAppController.hurTest
+GET     /SampleInputTest                           controllers.XcbAppController.SampleInputTest

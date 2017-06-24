@@ -2,6 +2,9 @@ package xcb_app.hurricane
 
 import xcb_app.{hurricaneNws23 => nws}
 import java.io._
+import java.awt.image._
+import java.awt.Color
+import javax.imageio.ImageIO
 
 package object HurricaneUtilities {
 
@@ -81,7 +84,7 @@ class LatLonGrid(topLatY:Double, botLatY:Double, leftLonX:Double, rightLonX:Doub
     val width = this.GetWidthInBlocks
     //val grid = List.fill(height)(List.range(0, width)).zipWithIndex
     //val grid2 = grid.flatMap( {case (inner, outerIndex) => inner.map( innerIndex => (innerIndex, outerIndex))} )
-    val grid3 = List.fill(height)(List.range(0,width)).zipWithIndex.flatMap(x => x._1.map(y => (y, x._2)))
+    val grid3 = List.fill(height)(List.range(0,width)).zipWithIndex.flatMap(x => x._1.map(y => (y, x._2)).reverse).reverse
     return grid3.map(x => this.GetBlockLatLon(x._1, x._2))
   }
 
@@ -103,8 +106,10 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     println("DoCalcs")
     val latLonList = this.grid.GetLatLonList
     println("LatLonList")
-    val CalcedResults = latLonList.map(x => TrackMap(this.trackPoints, x._1, x._2, 15))
+    val CalcedResults = latLonList.map(x => TrackMap(x._1, x._2, this.rMax_nmi))
     println("calced")
+
+    this.WriteToImage(CalcedResults, this.grid.GetWidthInBlocks, this.grid.GetHeightInBlocks)
 
     val writer = new FileWriter("testOut.txt")
     writer.write("LatY\tLonX\twind_kts\n")
@@ -123,14 +128,36 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     println("written")
   }
 
-  def TrackMap(tps:List[TrackPoint], pointLatY:Double, pointLonX:Double, rMax_nmi:Int):(Double, Double, Int) = {
-    return tps.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
+  def WriteToImage(outList: List[(Double, Double, Int)], width: Int, height: Int):Unit = {
+    val pixels = outList.map(x => new Color(x._3, 0, 0, 255).getRGB)
+    val pixLength = pixels.length
+    val calcLength = width * height
+    println(s"Pix Length: $pixLength, Calc Length: $calcLength")
+    //val pixels = outList.map(x => x._3.toShort)
+    val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+    val raster = image.getRaster
+    raster.setDataElements(0, 0, width, height, pixels.toArray)
+    ImageIO.write(image, "PNG", new File("OutImage.png"))
+  }
+  def TrackMap(pointLatY:Double, pointLonX:Double, rMax_nmi:Double):(Double, Double, Int) = {
+    val parallel = true
+
+    val ret = if (parallel) {
+      this.trackPoints.toParArray.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
+    } else {
+      this.trackPoints.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
+    }
+    return ret
   }
 
-  def PointMap(tp:TrackPoint, pointLatY:Double, pointLonX:Double, rMax_nmi:Int):(Double, Double, Int) = {
+  def PointMap(tp:TrackPoint, pointLatY:Double, pointLonX:Double, rMax_nmi:Double):(Double, Double, Int) = {
     val distance_nmi = HurricaneUtilities.haversine_degrees_to_meters(pointLatY, pointLonX, tp.eyeLat_y, tp.eyeLon_x) / 1000 * 0.539957
     val angleToCenter = HurricaneUtilities.calc_bearing_great_circle(tp.eyeLat_y, tp.eyeLon_x, pointLatY, pointLonX)
-    val maxWind = nws.calcWindspeed(distance_nmi, tp.eyeLat_y, tp.fSpeed_kts, rMax_nmi, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
+    val maxWind = if (distance_nmi <= 360) {
+      nws.calcWindspeed(distance_nmi, tp.eyeLat_y, tp.fSpeed_kts, rMax_nmi, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
+    } else {
+      0
+    }
 
     return (pointLatY, pointLonX, math.min(math.max(maxWind, 0), 255).toInt)
   }

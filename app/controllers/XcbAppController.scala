@@ -1,10 +1,13 @@
 package controllers
 
+import java.io.FileWriter
+import java.io.FileInputStream
 import javax.inject._
+
 import xcb_app._
 import play.api.mvc._
 import play.api.libs.json._
-import xcb_app.hurricane._
+import _root_.xcb_app.hurricane._
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -25,6 +28,20 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     Ok(app.libHello)
   }
 
+  def SampleInputTest = Action {
+    println("Sample Input Test")
+    val reader = new FileInputStream("SampleInput.txt")
+    val json =  Json.parse(reader)
+
+    val trackPoints = (json \ "track").validate[Seq[TrackPoint]].get//.asOpt.get
+    val bBoxJson = (json \ "BBox").get
+    val bBox = new BoundingBox((bBoxJson \ "topLatY").as[Double], (bBoxJson \ "botLatY").as[Double], (bBoxJson\ "leftLonX").as[Double], (bBoxJson \ "rightLonX").as[Double])
+    val fSpeed_kts = (json \ "fspeed").as[Double]
+    val rMax_nmi = (json \ "rmax").as[Double]
+
+    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi))
+  }
+
   def hurTest = Action(parse.json) { request =>
     println("here now")
     val trackPoints = (request.body \ "track").validate[Seq[TrackPoint]].get//.asOpt.get
@@ -35,6 +52,11 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
 
     println(bBox.leftLonX)
     //for (tp in trackPoints)
+
+//    val writer = new FileWriter("SampleInput.txt")
+//    writer.write(request.body.toString())
+//    writer.close()
+
     Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi))
 
     //val ls = user.map(x => x.split('|').toList.map)
