@@ -24,15 +24,15 @@ case class TrackPoint(
                        , maxWind_kts:Option[Double]
                        , minCp_mb:Option[Double]
                        , sequence:Double
-                       , fSpeed_kts:Double
-                       , isLandfallPoint:Boolean
+                       , var fSpeed_kts:Double
+                       , var isLandfallPoint:Boolean
                        , rMax_nmi:Double
                        , gwaf:Double
-                       , heading:Option[Double]
+                       , var heading:Option[Double]
 )
 
 object TrackPoint {
-  val formatter=DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm")
+  val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm")
   val dtReads = Reads[LocalDateTime](js =>
     js.validate[String].map[LocalDateTime](dtString =>
       LocalDateTime.parse(dtString, DateTimeFormat.forPattern("yyyy-MM-dd-HH-mm"))

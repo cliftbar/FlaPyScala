@@ -102,6 +102,24 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     return new HurricaneEvent(grid, this.trackPoints, this.rMax_nmi)
   }
 
+  def CalcTrackpointHeadings():Unit = {
+    if (this.trackPoints.length == 1) {
+      this.trackPoints(0).heading = Some(0)
+    } else {
+      for (i <- 0 until this.trackPoints.length - 1) {
+        val next_lat = this.trackPoints(i+1).eyeLat_y
+        val next_lon = this.trackPoints(i+1).eyeLon_x
+        val curr_lat = this.trackPoints(i).eyeLat_y
+        val curr_lon = this.trackPoints(i).eyeLon_x
+
+        val heading = HurricaneUtilities.CalcBearingNorthZero(curr_lat, curr_lon, next_lat, next_lon)
+        this.trackPoints(i).heading = Some(heading)
+      }
+
+      this.trackPoints.last.heading = this.trackPoints(this.trackPoints.length - 2).heading
+    }
+  }
+
   def DoCalcs():Unit = {
     println("DoCalcs")
     val latLonList = this.grid.GetLatLonList
@@ -154,7 +172,8 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     val distance_nmi = HurricaneUtilities.haversine_degrees_to_meters(pointLatY, pointLonX, tp.eyeLat_y, tp.eyeLon_x) / 1000 * 0.539957
     val angleToCenter = HurricaneUtilities.calc_bearing_great_circle(tp.eyeLat_y, tp.eyeLon_x, pointLatY, pointLonX)
     val maxWind = if (distance_nmi <= 360) {
-      nws.calcWindspeed(distance_nmi, tp.eyeLat_y, tp.fSpeed_kts, rMax_nmi, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
+      //tp.fSpeed_kts
+      nws.calcWindspeed(distance_nmi, tp.eyeLat_y, 15, rMax_nmi, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
     } else {
       0
     }
