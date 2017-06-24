@@ -12,3 +12,5 @@ GET     /assets/*file               controllers.Assets.versioned(path="/public",
 GET     /nextCount                           controllers.XcbAppController.nextCount
 GET     /helloApp                           controllers.XcbAppController.helloApp
 GET     /helloLib                           controllers.XcbAppController.helloLib
+POST /hurTest    controllers.XcbAppController.hurTest
+GET     /SampleInputTest                           controllers.XcbAppController.SampleInputTest

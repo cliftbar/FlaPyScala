@@ -1,199 +1,165 @@
 package xcb_app.hurricane
 
+import xcb_app.{hurricaneNws23 => nws}
+import java.io._
+import java.awt.image._
+import java.awt.Color
+import javax.imageio.ImageIO
+
+package object HurricaneUtilities {
+
+  def CalcBearingNorthZero(latRef:Double, lonRef:Double, latLoc:Double, lonLoc:Double):Double = {
+    val lonDelta = lonLoc - lonRef
+    val latDelta = latLoc - latRef
+
+    val angleDeg = math.toDegrees(math.atan2(lonDelta, latDelta))
+    return (angleDeg + 360) % 360
+  }
+
+  def calc_bearing_great_circle(latRef:Double, lonRef:Double, latLoc:Double, lonLoc:Double):Double = {
+    val y = math.sin(lonLoc - lonRef) * math.cos(latLoc)
+    val x = math.cos(latRef) * math.sin(latLoc) - math.sin(latRef) * math.cos(latLoc) * math.cos(lonLoc - lonRef)
+    val brng = math.toDegrees(math.atan2(y, x))
+    return (brng + 360) % 360
+  }
+
+  def haversine_degrees_to_meters(lat_1:Double, lon_1:Double, lat_2:Double, lon_2:Double):Double = {
+    val r = 6371000
+    val delta_lat = math.toRadians(lat_2 - lat_1)
+    val delta_lon = math.toRadians(lon_2 - lon_1)
+
+    val a = math.pow(math.sin(delta_lat / 2), 2) + math.cos(math.toRadians(lat_1)) * math.cos(math.toRadians(lat_2)) * math.pow(math.sin(delta_lon / 2), 2)
+    val c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return r * c
+  }
+}
+class BoundingBox (val topLatY:Double, val botLatY:Double, val leftLonX:Double, val rightLonX:Double) {
+//  val topLatY:Double = topLatY
+//  val botLatY:Double = Double.NaN
+//  val leftLonX:Double = Double.NaN
+//  val rightLonX:Double = Double.NaN
+
+  def Update(side:String, value:Double):BoundingBox = {
+    return side match {
+      case "top" => new BoundingBox(value, this.botLatY, this.leftLonX, this.rightLonX)
+      case "bottom" => new BoundingBox(this.topLatY, value, this.leftLonX, this.rightLonX)
+      case "left" => new BoundingBox(this.topLatY, this.botLatY, value, this.rightLonX)
+      case "right" => new BoundingBox(this.topLatY, this.botLatY, this.leftLonX, value)
+      case _ => throw new Exception("Unsupported Update")
+    }
+  }
+
+  def GetWidth:Double = {return math.abs(this.rightLonX - this.leftLonX)}
+  def GetHeight:Double = {return math.abs(this.topLatY - this.botLatY)}
+}
+
+class LatLonGrid(topLatY:Double, botLatY:Double, leftLonX:Double, rightLonX:Double, val BlockPerDegreeX:Int, val BlockPerDegreeY:Int) extends BoundingBox (topLatY, botLatY, leftLonX, rightLonX) {
+
+  override def Update(item: String, value: Double): BoundingBox = {
+    return item match {
+      case "blocksX" => new LatLonGrid(this.topLatY, this.botLatY, this.leftLonX, this.rightLonX, value.toInt, this.BlockPerDegreeY)
+      case "blocksY" => new LatLonGrid(this.topLatY, this.botLatY, this.leftLonX, this.rightLonX, value.toInt, this.BlockPerDegreeY)
+      case _ => super.Update(item, value)
+    }
+  }
+
+  def GetBlockIndex(latY:Double, lonX:Double):(Int, Int) = {
+    val blockX = (lonX - this.leftLonX) * this.BlockPerDegreeX
+    val blockY = (latY - this.botLatY) * this.BlockPerDegreeY
+
+    return (blockY.toInt, blockX.toInt)
+  }
+  def GetBlockLatLon(blockX:Int, blockY:Int):(Double, Double) = {
+    return (GetBlockLatY(blockY),GetBlockLonX(blockX))
+  }
+
+  def GetBlockLatY(blockY:Int):Double = {return this.botLatY + (blockY / this.BlockPerDegreeY.toDouble)}
+  def GetBlockLonX(blockX:Int):Double = {this.leftLonX + (blockX / this.BlockPerDegreeX.toDouble)}
+
+  def GetWidthInBlocks:Int = {(this.GetWidth * this.BlockPerDegreeX).toInt}
+  def GetHeightInBlocks:Int = {(this.GetHeight * this.BlockPerDegreeY).toInt}
+
+  def GetLatLonList:List[(Double,Double)] = { //List[(Double,Double)]
+    val height = this.GetHeightInBlocks
+    val width = this.GetWidthInBlocks
+    //val grid = List.fill(height)(List.range(0, width)).zipWithIndex
+    //val grid2 = grid.flatMap( {case (inner, outerIndex) => inner.map( innerIndex => (innerIndex, outerIndex))} )
+    val grid3 = List.fill(height)(List.range(0,width)).zipWithIndex.flatMap(x => x._1.map(y => (y, x._2)).reverse).reverse
+    return grid3.map(x => this.GetBlockLatLon(x._1, x._2))
+  }
+
+}
 /**
   * Created by cameron.barclift on 5/12/2017.
   */
-class xcb_hurricane {
-  val Pw_SPH_kPa = 100.8
-  val Pw_PMH_kPa = 102.0
-  val Pw_SPH_inhg = 29.77
-  val Pw_PMH_inhg = 30.12
-  val Rho0_kPa = 101.325  // Mean Sea Level Pressure
-  val KmToNmi = 0.539957
-  val MpsToKts = 1.94384
-  val KpaToInhg = 0.2953
-  val MbToInhg = 0.02953
+class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val rMax_nmi:Double) {
 
-  /**
-    * Linear interpolation function, returns y for given x interpolated over range x1,y1 to x2,y2
-    * @param x
-    * @param x1
-    * @param x2
-    * @param y1
-    * @param y2
-    * @return y
-    */
-  def linearInterpolation(x:Double, x1:Double, x2:Double, y1:Double, y2:Double):Double = {
-    return ((y2 - y1) / (x2 - x1)) * (x - x1)
+  def AddTrackPoint(tp:TrackPoint):HurricaneEvent = {
+    return new HurricaneEvent(this.grid, this.trackPoints ::: List(tp), this.rMax_nmi)
   }
 
-  /**
-    * Calculates the radial decay factor for a given radius.
-    * rMax_nmi < r_nmi: NWS 23 pdf page 53, page 27, Figure 2.12, empirical fit
-    * rMax_nmi > r_nmi: NWS 23 pdf page 54, page 28, Figure 2.13, empirical fit (logistic regression)
-    * @param r_nmi
-    * @param rMax_nmi
-    * @return Radial Decay factor representing windspeed weakening as radial distance increases
-    */
-  def radialDecay(r_nmi:Double, rMax_nmi:Double):Double = {
-    val ret = if (r_nmi >= rMax_nmi) {
-      // NWS 23 pdf page 53
-      val slope = (-0.051 * math.log(rMax_nmi)) - 0.1757
-      val intercept = (0.4244 * math.log(rMax_nmi)) + 0.7586
-      (slope * math.log(r_nmi)) + intercept
-    } else {
-      // NWS 23 pdf page 54
-      // 1.01231578 / (1 + math.exp(-8.612066494 * ((r_nmi / float(rmax_nmi)) - 0.678031222)))
-      // this is a concession for modeling time series, where everything within the max wind radius is expected to experience the max wind radius while the storm translates
-      1
+  def AddGrid(grid: LatLonGrid):HurricaneEvent = {
+    return new HurricaneEvent(grid, this.trackPoints, this.rMax_nmi)
+  }
+
+  def DoCalcs():Unit = {
+    println("DoCalcs")
+    val latLonList = this.grid.GetLatLonList
+    println("LatLonList")
+    val CalcedResults = latLonList.map(x => TrackMap(this.trackPoints, x._1, x._2, this.rMax_nmi.toInt))
+    //val CalcedTakeTwo = latLonList.map(x => (this.trackPoints, x)).map(x => x._1.map(tp => PointMap(tp, x._2._1, x._2._2, this.rMax_nmi.toInt)).maxBy(pt => pt._3))
+    println("calced")
+
+    this.WriteToImage(CalcedResults, this.grid.GetWidthInBlocks, this.grid.GetHeightInBlocks)
+
+    val writer = new FileWriter("testOut.txt")
+    writer.write("LatY\tLonX\twind_kts\n")
+
+    for (x <- CalcedResults) {
+      writer.write(s"${x._1}\t${x._2}\t${x._3}\n")
     }
 
-    // keep radial decay between 0 and 1
-    return math.max(math.min(ret, 1), 0)
+//    for (x <- latLonList) {
+//      val point = TrackMap(this.trackPoints, x._1, x._2, 15)
+//      writer.write(s"${point._1}\t${point._2}\t${point._3}\n")
+//    }
+
+    writer.close()
+
+    println("written")
   }
 
-  /**
-    * Calculate the coriolis factor for a given latitude
-    * @param lat_deg
-    * @return coriolis factor
-    */
-  def coriolisFrequency(lat_deg:Double):Double = {
-    val w = 2.0 * math.Pi / 24
-    return 2.0 * w * math.sin(math.toRadians(lat_deg))
+  def WriteToImage(outList: List[(Double, Double, Int)], width: Int, height: Int):Unit = {
+    val pixels = outList.map(x => new Color(x._3, 0, 0, 255).getRGB)
+    val pixLength = pixels.length
+    val calcLength = width * height
+    println(s"Pix Length: $pixLength, Calc Length: $calcLength")
+    //val pixels = outList.map(x => x._3.toShort)
+    val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+    val raster = image.getRaster
+    raster.setDataElements(0, 0, width, height, pixels.toArray)
+    ImageIO.write(image, "PNG", new File("OutImage.png"))
   }
+  def TrackMap(pointLatY:Double, pointLonX:Double, rMax_nmi:Double):(Double, Double, Int) = {
+    val parallel = true
 
-  /**
-    * NWS 23 pdf page 50, page 24, figure 2.10, emperical relationship (linear regression)
-    * This is for the PMH, We can also improve this relationship
-    * @param lat_deg
-    * @return K factor representing air density effects for units Knots, In. Hg
-    */
-  def kDensityCoefficient(lat_deg:Double):Double = {
-    return 69.1952184 / (1 + math.exp(0.20252 * (lat_deg - 58.72458)))
-  }
-
-  /**
-    * NWS 23 pdf page 49, page 23, equation 2.2
-    * @param pw_InHg Peripheral Pressure, pressure at edge of storm, should be near MSLP, In. Hg
-    * @param cp_InHg Central Pressure in In. Hg
-    * @param r_nmi Radius from center of storm in nautical miles.  Use Radius of max winds (Rmax) to get maximum gradient wind
-    * @param lat_deg Latitude of hurricane eye
-    * @return Gradient Wind at point in Knots
-    */
-  def gradientWindAtRadius(pw_InHg:Double , cp_InHg:Double , r_nmi:Double , lat_deg:Double ):Double = {
-    val k = kDensityCoefficient(lat_deg)
-    val f = coriolisFrequency(lat_deg)
-
-    return (k * math.pow((pw_InHg - cp_InHg), 0.5)) - ((r_nmi * f) / 2)
-  }
-
-  /**
-    * Emperical inflow angle calculation of PMH
-    * NWS 23 pdf page 55
-    * NOAA_NWS23_Inflow_Calc.xlsx
-    * @param r_nmi Radius from the center of the storm in Nautical Miles
-    * @param rMax_nmi Radius of maximum winds in Nautical Miles
-    * @return Inflow angle
-    */
-  def inflowAngle(r_nmi:Double, rMax_nmi:Double):Double = {
-    val rPhiMax = (3.0688 * rMax_nmi) - 2.7151
-
-    val phi = if (r_nmi < rPhiMax) {
-      val a = 11.438 * math.pow(rMax_nmi, -1.416)
-      val b = (1.1453 * rMax_nmi) + 1.4536
-      val phiMax = 9.7043566358 * math.log(rMax_nmi) - 2.7295806727
-      phiMax / (1 + math.exp(-1 * a * (r_nmi - b))) ///return this
+    val ret = if (parallel) {
+      this.trackPoints.toParArray.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
     } else {
-      val rNmiUse = math.min(r_nmi, 130)
+      this.trackPoints.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
+    }
+    return ret
+  }
 
-      val x1 = (0.0000896902 * rMax_nmi * rMax_nmi) - (0.0036924418 * rMax_nmi) + 0.0072307906
-      val x2 = (0.000002966 * rMax_nmi * rMax_nmi) - (0.000090532 * rMax_nmi) - 0.0010373287
-      val x3 = (-0.0000000592 * rMax_nmi * rMax_nmi) + (0.0000019826 * rMax_nmi) - 0.0000020198
-      val c = (9.7043566341 * math.log(rMax_nmi)) - 2.7295806689
-
-      val phiIntermediate = (x3 * math.pow((rNmiUse - rPhiMax), 3)) + (x2 * math.pow((rNmiUse - rPhiMax), 2)) + (x1 * (rNmiUse - rPhiMax)) + c
-
-      val phiTemp = if (130 < r_nmi && r_nmi < 360) { // justification on NWS23 pdf page 287 page 263
-        val deltaPhi = linearInterpolation(r_nmi, 130, 360, phiTemp, (phiTemp - 2))
-        phiIntermediate + deltaPhi
-      } else if (360 <= r_nmi) {
-        phiIntermediate - 2
-      } else {
-        phiIntermediate
-      }
-
-      phiTemp
+  def PointMap(tp:TrackPoint, pointLatY:Double, pointLonX:Double, rMax_nmi:Double):(Double, Double, Int) = {
+    val distance_nmi = HurricaneUtilities.haversine_degrees_to_meters(pointLatY, pointLonX, tp.eyeLat_y, tp.eyeLon_x) / 1000 * 0.539957
+    val angleToCenter = HurricaneUtilities.calc_bearing_great_circle(tp.eyeLat_y, tp.eyeLon_x, pointLatY, pointLonX)
+    val maxWind = if (distance_nmi <= 360) {
+      nws.calcWindspeed(distance_nmi, tp.eyeLat_y, tp.fSpeed_kts, rMax_nmi, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
+    } else {
+      0
     }
 
-    return phi
+    return (pointLatY, pointLonX, math.min(math.max(maxWind, 0), 255).toInt)
   }
-
-  /**
-    * NWS 23 pdf page 51, page 25, equation 2.5
-    * NWS 23 pdf page 263, page 269
-    * NWS 23 pdf page 281, page 257
-    * Factor for a moving hurricane, accounts for effect of forward speed on hurricane winds
-    * To conversion factors: 1 kt, 0.514791 mps, 1.853248 kph, 1.151556 mph
-    * @param fSpeed_kts Forward speed of the storm in Knots
-    * @param r_nmi Radius from the center of the storm in Nautical Miles
-    * @param rMax_nmi  Radius of maximum winds in Nautical Miles
-    * @param angleFromCenter Simple angle from point to center of storm, in bearing notation (North = 0)
-    * @param trackBearing Heading of track from current point to next point
-    * @return Asymmetry Factor in Knots, represents the effect of storm forward movement and rotation on windspeed
-    */
-  def asymmetryFactor(fSpeed_kts:Double, r_nmi:Double, rMax_nmi:Double, angleFromCenter:Double, trackBearing:Double):Double = {
-    val to = 1 //conversion factor
-    val phi_r = inflowAngle(r_nmi, rMax_nmi)  // need to figure out direction
-    val phi_rmax = inflowAngle(rMax_nmi, rMax_nmi)  // need to figure out direction
-    val phi_beta = (phi_r - phi_rmax) % 360
-    val bearing_shift = (90 - angleFromCenter + trackBearing) % 360
-    val beta = (phi_beta + bearing_shift) % 360
-
-    return 1.5 * math.pow(fSpeed_kts, 0.63) * math.pow(to, 0.37) * math.cos(math.toRadians(beta))
-  }
-
-  /**
-    * Calculate the windspeed from parameters.  Maximum gradient wind calculated from a given Central and Peripheral pressure
-    * @param cp_mb central pressure in Millibars
-    * @param r_nmi Point radius from center of storm in Nautical Miles
-    * @param lat_deg Latitude of hurricane eye
-    * @param fSpeed_kts Forward speed of the storm in Knots
-    * @param rMax_nmi Radius of maximum winds in Nautical Miles
-    * @param angleToCenter Simple angle from point to center of storm, in bearing notation (North = 0)
-    * @param trackHeading Heading of track from current point to next point
-    * @param pw_kpa (102.0 kpa) Peripheral Pressure, pressure at edge of storm, in Milibars, should be near Mean Sea Level Pressue.
-    * @param gwaf (0.9) Gradient Wind Adjustment Factor, semi-emprical adjustment to the Gradient Wind. Range 0.75-1.05, Generally between 0.9 and 1. NWS 23 pdf page 50, page 24, 2.2.7.2.1
-    * @return Windspeed at a given radius for the storm, accounting for asymmetry, in Knots
-    */
-  def calcWindspeed(cp_mb:Double, r_nmi:Double, lat_deg:Double, fSpeed_kts:Double, rMax_nmi:Double, angleToCenter:Double, trackHeading:Double, pw_kpa:Double = Pw_PMH_kPa, gwaf:Double = 0.9):Double = {
-    val cp_InHg = cp_mb * MbToInhg
-    val pw_InHg = pw_kpa * KpaToInhg
-
-    //Calculate the Maximum Gradient Windspeed from Central and Peripheral pressure, 10m-10min Average
-    val vgxMax_kts = gradientWindAtRadius(pw_InHg, cp_InHg, rMax_nmi, lat_deg)
-
-    // call calcWindspeed with the calculated Maximum Gradient Wind
-    return calcWindspeed(r_nmi, lat_deg, fSpeed_kts, rMax_nmi, angleToCenter, trackHeading, vgxMax_kts, gwaf)
-  }
-
-  /**
-    * Calculate the windspeed from parameters.
-    * @param r_nmi Point radius from center of storm in Nautical Miles
-    * @param lat_deg Latitude of hurricane eye
-    * @param fSpeed_kts Forward speed of the storm in Knots
-    * @param rMax_nmi Radius of maximum winds in Nautical Miles
-    * @param angleToCenter Simple angle from point to center of storm, in bearing notation (North = 0)
-    * @param trackHeading Heading of track from current point to next point
-    * @param vgxMax_kts Maximum Gradient Windspeed, or Max Windspeed of the storm at the current time step, in Knots
-    * @param gwaf (0.9) Gradient Wind Adjustment Factor, semi-emprical adjustment to the Gradient Wind. Range 0.75-1.05, Generally between 0.9 and 1. NWS 23 pdf page 50, page 24, 2.2.7.2.1
-    * @return
-    */
-  def calcWindspeed(r_nmi:Double, lat_deg:Double, fSpeed_kts:Double, rMax_nmi:Double, angleToCenter:Double, trackHeading:Double, vgxMax_kts:Double, gwaf:Double = 0.9):Double = {
-    val radial_decay_factor = radialDecay(r_nmi, rMax_nmi)
-    val asym = asymmetryFactor(fSpeed_kts, r_nmi, rMax_nmi, angleToCenter, trackHeading)
-
-    // apply all factors and return windspeed at point
-    return (vgxMax_kts * gwaf * radial_decay_factor) + asym
-  }
-
 }
