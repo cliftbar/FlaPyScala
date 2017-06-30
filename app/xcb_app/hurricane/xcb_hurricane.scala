@@ -4,7 +4,13 @@ import xcb_app.{hurricaneNws23 => nws}
 import java.io._
 import java.awt.image._
 import java.awt.Color
+import java.time
 import javax.imageio.ImageIO
+
+import scala.collection.parallel._
+import scala.concurrent.forkjoin._
+
+import scala.collection.mutable._
 
 package object HurricaneUtilities {
 
@@ -124,27 +130,45 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     println("DoCalcs")
     val latLonList = this.grid.GetLatLonList
     println("LatLonList")
-    val CalcedResults = latLonList.map(x => TrackMap(this.trackPoints, x._1, x._2, this.rMax_nmi.toInt))
-    //val CalcedTakeTwo = latLonList.map(x => (this.trackPoints, x)).map(x => x._1.map(tp => PointMap(tp, x._2._1, x._2._2, this.rMax_nmi.toInt)).maxBy(pt => pt._3))
+    val parallel = false
+
+    val CalcedResults = if (parallel) {
+      val latLonBatched = latLonList.grouped(1000).toList
+      val latLonBatchedPar = latLonBatched.map(x => x.toParArray)
+      latLonBatchedPar.foreach(x => x.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(2)))
+      // = latLonBatchedPar.map(batch => batch.map(x => TrackMap(x._1, x._2, this.rMax_nmi.toInt)).toList)
+      println("Parallel flat map")
+      var res = new ArrayBuffer[(Double, Double, Int)]
+      //latLonBatchedPar.flatMap(batch => batch.map(x => TrackMap(x._1, x._2, this.rMax_nmi.toInt)).toList)
+
+      for (batch <- latLonBatchedPar) {
+        res ++= batch.map(x => TrackMap(x._1, x._2, this.rMax_nmi.toInt)).toList
+      }
+      res.toList
+    } else {
+      latLonList.map(x => TrackMap(x._1, x._2, this.rMax_nmi.toInt))
+    }
+
+    //var parLatLon = latLonList.toParArray
+    //parLatLon.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(2))
+    //println("Level of parallelism: " + parLatLon.tasksupport.parallelismLevel.toString)
+    //val CalcedResults = parLatLon.map(x => TrackMap(x._1, x._2, this.rMax_nmi.toInt)).toList
     println("calced")
 
+    println("write Image")
     this.WriteToImage(CalcedResults, this.grid.GetWidthInBlocks, this.grid.GetHeightInBlocks)
 
     val writer = new FileWriter("testOut.txt")
     writer.write("LatY\tLonX\twind_kts\n")
 
+    println("write txt")
     for (x <- CalcedResults) {
       writer.write(s"${x._1}\t${x._2}\t${x._3}\n")
     }
 
-//    for (x <- latLonList) {
-//      val point = TrackMap(this.trackPoints, x._1, x._2, 15)
-//      writer.write(s"${point._1}\t${point._2}\t${point._3}\n")
-//    }
-
     writer.close()
 
-    println("written")
+    println("all written")
   }
 
   def WriteToImage(outList: List[(Double, Double, Int)], width: Int, height: Int):Unit = {
@@ -152,33 +176,29 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     val pixLength = pixels.length
     val calcLength = width * height
     println(s"Pix Length: $pixLength, Calc Length: $calcLength")
-    //val pixels = outList.map(x => x._3.toShort)
+
     val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
     val raster = image.getRaster
     raster.setDataElements(0, 0, width, height, pixels.toArray)
     ImageIO.write(image, "PNG", new File("OutImage.png"))
   }
-  def TrackMap(pointLatY:Double, pointLonX:Double, rMax_nmi:Double):(Double, Double, Int) = {
-    val parallel = true
 
-    val ret = if (parallel) {
-      this.trackPoints.toParArray.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
-    } else {
-      this.trackPoints.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
+  def TrackMap(pointLatY:Double, pointLonX:Double, rMax_nmi:Double):(Double, Double, Int) = {
+    if (pointLatY % 2 == 0 && pointLonX % 80 == 0) {
+      println("trackmap: " + pointLatY.toString + ", " + pointLonX.toString + ", " + time.LocalDateTime.now().toString)
     }
-    return ret
+    return this.trackPoints.map(tp => PointMap(tp, pointLatY, pointLonX, rMax_nmi)).maxBy(x => x._3)
   }
 
   def PointMap(tp:TrackPoint, pointLatY:Double, pointLonX:Double, rMax_nmi:Double):(Double, Double, Int) = {
     val distance_nmi = HurricaneUtilities.haversine_degrees_to_meters(pointLatY, pointLonX, tp.eyeLat_y, tp.eyeLon_x) / 1000 * 0.539957
-    val angleToCenter = HurricaneUtilities.calc_bearing_great_circle(tp.eyeLat_y, tp.eyeLon_x, pointLatY, pointLonX)
+    val angleToCenter = HurricaneUtilities.CalcBearingNorthZero(tp.eyeLat_y, tp.eyeLon_x, pointLatY, pointLonX)
     val maxWind = if (distance_nmi <= 360) {
-      //tp.fSpeed_kts
       nws.calcWindspeed(distance_nmi, tp.eyeLat_y, 15, rMax_nmi, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
     } else {
       0
     }
 
-    return (pointLatY, pointLonX, math.min(math.max(maxWind, 0), 255).toInt)
+    return (pointLatY, pointLonX, math.min(math.max(maxWind, 0), 255).round.toInt)
   }
 }

@@ -30,7 +30,7 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
 
   def SampleInputTest = Action {
     println("Sample Input Test")
-    val reader = new FileInputStream("SampleInput.txt")
+    val reader = new FileInputStream("SampleInput_Matthew.txt")
     val json =  Json.parse(reader)
 
     val trackPoints = (json \ "track").validate[Seq[TrackPoint]].get//.asOpt.get
@@ -49,7 +49,7 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     val bBox = new BoundingBox((bBoxJson \ "topLatY").as[Double], (bBoxJson \ "botLatY").as[Double], (bBoxJson\ "leftLonX").as[Double], (bBoxJson \ "rightLonX").as[Double])
     val fSpeed_kts = (request.body \ "fspeed").as[Double]
     val rMax_nmi = (request.body \ "rmax").as[Double]
-
+    println(request.body)
     println(bBox.leftLonX)
     //for (tp in trackPoints)
 

@@ -1,5 +1,6 @@
 package xcb_app
 
+import java.io.FileWriter
 import javax.inject._
 
 import xcb_app.hurricane.BoundingBox
@@ -30,10 +31,19 @@ class xcb_app {
     println(bBox.leftLonX)
     println(trackPoints(0))
     println(time.LocalDateTime.now())
-    val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, 10, 10)
+    val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, 100, 100)
     val event = new hur.HurricaneEvent(grid, trackPoints.toList, rMax_nmi)
     event.CalcTrackpointHeadings()
     event.DoCalcs()
+
+    val writer = new FileWriter("testTrack.txt")
+    writer.write("LatY\tLonX\tfspeed_kts\theading\n")
+
+    for (x <- event.trackPoints) {
+      writer.write(s"${x.eyeLat_y}\t${x.eyeLon_x}\t${x.fSpeed_kts}\t${x.heading}\n")
+    }
+
+    writer.close
     println(time.LocalDateTime.now())
     println("Did test")
     return "hurrTestWorked"

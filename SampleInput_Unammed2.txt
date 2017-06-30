@@ -1,0 +1,1 @@
+{"rmax":15,"BBox":{"leftLonX":-99.6,"topLatY":24.2,"botLatY":20.2,"rightLonX":-95.6},"track":[{"fSpeed_kts":15,"basin":"AL","eyeLat_y":22.2,"rMax_nmi":15,"minCp_mb":null,"eyeLon_x":-97.6,"catalogNumber":2,"maxWind_kts":80,"isLandfallPoint":false,"gwaf":0.9,"stormName":"UNNAMED","sequence":0,"timestamp":"1851-07-05-12-00","heading":null}],"fspeed":15}
