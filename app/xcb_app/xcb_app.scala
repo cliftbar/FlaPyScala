@@ -8,6 +8,8 @@ import xcb_app.{LibraryClass => lc}
 import xcb_app.{hurricane => hur}
 import java.time
 
+import play.api.libs.json._
+
 /**
   * Created by cameron.barclift on 5/5/2017.
   */
@@ -24,14 +26,14 @@ class xcb_app {
     lc.Hello
   }
 
-  def hurrTest(trackPoints:Seq[hur.TrackPoint], bBox:BoundingBox, fSpeed_kts:Option[Double], rMax_nmi:Double):String = {
+  def hurrTest(trackPoints:Seq[hur.TrackPoint], bBox:BoundingBox, fSpeed_kts:Option[Double], rMax_nmi:Double, pxPerDegree:(Int, Int)):String = {
     println("In Function")
     println(rMax_nmi)
     println(fSpeed_kts)
     println(bBox.leftLonX)
     println(trackPoints(0))
     println(time.LocalDateTime.now())
-    val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, 100, 100)
+    val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, pxPerDegree._1, pxPerDegree._2)
     val event = new hur.HurricaneEvent(grid, trackPoints.toList, rMax_nmi)
     event.CalcTrackpointHeadings()
     event.DoCalcs()
@@ -46,6 +48,14 @@ class xcb_app {
     writer.close
     println(time.LocalDateTime.now())
     println("Did test")
-    return "hurrTestWorked"
+    case class RetObject(imageUri: String)
+    implicit val RetObjectWrites = new Writes[RetObject] {
+      def writes(ret: RetObject) = Json.obj(
+        "imageUri" -> ret.imageUri
+      )
+    }
+
+    val ret = RetObject(System.getProperty("user.dir") + "\\OutImage.png")
+    return Json.toJson(ret).toString()
   }
 }
