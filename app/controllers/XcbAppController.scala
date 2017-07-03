@@ -40,7 +40,7 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     val rMax_nmi = (json \ "rmax").as[Double]
     //Val pxPerDegree = (bBoxJson \ "pxPerDegree").as[Int]
 
-    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, (10, 10)))
+    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, (10, 10), 360))
   }
 
   def hurTest = Action(parse.json) { request =>
@@ -53,6 +53,8 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     val pxPerDegreeX = (bBoxJson \ "pxPerDegreeX").as[Int]
     val pxPerDegreeY = (bBoxJson \ "pxPerDegreeY").as[Int]
     val pxPerDegree = (pxPerDegreeX, pxPerDegreeY)
+    val par = (request.body \ "par").as[Int]
+    val maxDist = (request.body \ "maxDist").as[Int]
 
     println(request.body)
     println(bBox.leftLonX)
@@ -62,7 +64,7 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
 //    writer.write(request.body.toString())
 //    writer.close()
 
-    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, pxPerDegree))
+    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, pxPerDegree, maxDist, par))
 
     //val ls = user.map(x => x.split('|').toList.map)
 

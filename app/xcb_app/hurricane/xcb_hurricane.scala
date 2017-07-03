@@ -126,32 +126,32 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     }
   }
 
-  def DoCalcs():Unit = {
+  def DoCalcs(maxDist:Int, par:Int):Unit = {
     println("DoCalcs")
     val latLonList = this.grid.GetLatLonList
     println("LatLonList")
-    val parallel = true
+    val parallel = if (par == -1) false else true
 
     val CalcedResults = if (parallel) {
       //val latLonBatched = latLonList.grouped(10000).toList
       //val latLonBatchedPar = latLonBatched.map(x => x.toParArray)
       var latLonPar =latLonList.toParArray
-      latLonPar.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(2))
+      latLonPar.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(par))
 
       //latLonBatchedPar.foreach(x => x.tasksupport = ts)
       // = latLonBatchedPar.map(batch => batch.map(x => TrackMap(x._1, x._2, this.rMax_nmi.toInt)).toList)
 
       //val ret =
-      println("Parallel map")
+      println("Parallel map: " + par.toString)
       //var res = List[List[(Double, Double, Int)]]()
       //val ret = latLonBatchedPar.map(batch => batch.map(x => TrackMap(x._1, x._2)).toArray)
 
 //      for (batch <- latLonBatchedPar) {
 //        res ++= batch.map(x => TrackMap(x._1, x._2, this.rMax_nmi.toInt)).toList
 //      }
-      latLonPar.map(x => TrackMap(x._1, x._2)).toList
+      latLonPar.map(x => TrackMap(x._1, x._2, maxDist)).toList
     } else {
-      latLonList.map(x => TrackMap(x._1, x._2))
+      latLonList.map(x => TrackMap(x._1, x._2, maxDist))
     }
 
     //var parLatLon = latLonList.toParArray
@@ -188,19 +188,19 @@ class HurricaneEvent (val grid:LatLonGrid, val trackPoints:List[TrackPoint], val
     ImageIO.write(image, "PNG", new File("OutImage.png"))
   }
 
-  def TrackMap(pointLatY:Double, pointLonX:Double):(Double, Double, Int) = {
+  def TrackMap(pointLatY:Double, pointLonX:Double, maxDist:Int):(Double, Double, Int) = {
 //    if (pointLatY % 2 == 0 && pointLonX % 80 == 0) {
 //      println("trackmap: " + pointLatY.toString + ", " + pointLonX.toString + ", " + time.LocalDateTime.now().toString)
 //    }
 
-    return this.trackPoints.toArray.map(tp => PointMap(tp, pointLatY, pointLonX)).maxBy(x => x._3)
+    return this.trackPoints.toArray.map(tp => PointMap(tp, pointLatY, pointLonX, maxDist)).maxBy(x => x._3)
   }
 
-  def PointMap(tp:TrackPoint, pointLatY:Double, pointLonX:Double):(Double, Double, Int) = {
+  def PointMap(tp:TrackPoint, pointLatY:Double, pointLonX:Double, maxDist:Int):(Double, Double, Int) = {
     val distance_nmi = HurricaneUtilities.haversine_degrees_to_meters(pointLatY, pointLonX, tp.eyeLat_y, tp.eyeLon_x) / 1000 * 0.539957
     val angleToCenter = HurricaneUtilities.CalcBearingNorthZero(tp.eyeLat_y, tp.eyeLon_x, pointLatY, pointLonX)
-    val maxWind = if (distance_nmi <= 360) {
-      nws.calcWindspeed(distance_nmi, tp.eyeLat_y, 15, this.rMax_nmi.toInt, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
+    val maxWind = if (distance_nmi <= maxDist) {
+      nws.calcWindspeed(distance_nmi, tp.eyeLat_y, tp.fSpeed_kts, this.rMax_nmi.toInt, angleToCenter, tp.heading.getOrElse(0.0), tp.maxWind_kts.get, tp.gwaf)
     } else {
       0
     }

@@ -26,7 +26,7 @@ class xcb_app {
     lc.Hello
   }
 
-  def hurrTest(trackPoints:Seq[hur.TrackPoint], bBox:BoundingBox, fSpeed_kts:Option[Double], rMax_nmi:Double, pxPerDegree:(Int, Int)):String = {
+  def hurrTest(trackPoints:Seq[hur.TrackPoint], bBox:BoundingBox, fSpeed_kts:Option[Double], rMax_nmi:Double, pxPerDegree:(Int, Int), maxDist:Int, par:Int = -1):String = {
     println("In Function")
     println(rMax_nmi)
     println(fSpeed_kts)
@@ -35,8 +35,8 @@ class xcb_app {
     println(time.LocalDateTime.now())
     val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, pxPerDegree._1, pxPerDegree._2)
     val event = new hur.HurricaneEvent(grid, trackPoints.toList, rMax_nmi)
-    event.CalcTrackpointHeadings()
-    event.DoCalcs()
+    //event.CalcTrackpointHeadings()
+    event.DoCalcs(maxDist, par)
 
     val writer = new FileWriter("testTrack.txt")
     writer.write("LatY\tLonX\tfspeed_kts\theading\n")
