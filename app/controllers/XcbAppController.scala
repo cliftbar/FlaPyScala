@@ -40,12 +40,12 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     val rMax_nmi = (json \ "rmax").as[Double]
     //Val pxPerDegree = (bBoxJson \ "pxPerDegree").as[Int]
 
-    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, (10, 10), 360))
+    Ok(app.CalculateHurricane(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, (10, 10), 360))
   }
 
   def hurTest = Action(parse.json) { request =>
     println("here now")
-    val trackPoints = (request.body \ "track").validate[Seq[TrackPoint]].get//.asOpt.get
+    val trackPoints = (request.body \ "track").validate[Seq[TrackPoint]].get
     val bBoxJson = (request.body \ "BBox").get
     val bBox = new BoundingBox((bBoxJson \ "topLatY").as[Double], (bBoxJson \ "botLatY").as[Double], (bBoxJson\ "leftLonX").as[Double], (bBoxJson \ "rightLonX").as[Double])
     val fSpeed_kts = (request.body \ "fspeed").as[Double]
@@ -56,19 +56,8 @@ class XcbAppController @Inject()(app:xcb_app) extends Controller {
     val par = (request.body \ "par").as[Int]
     val maxDist = (request.body \ "maxDist").as[Int]
 
-    println(request.body)
-    println(bBox.leftLonX)
-    //for (tp in trackPoints)
+    println("Json Parse")
 
-//    val writer = new FileWriter("SampleInput.txt")
-//    writer.write(request.body.toString())
-//    writer.close()
-
-    Ok(app.hurrTest(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, pxPerDegree, maxDist, par))
-
-    //val ls = user.map(x => x.split('|').toList.map)
-
-    //val trackPoints = (json.get \ "track").get.as[]
-
+    Ok(app.CalculateHurricane(trackPoints, bBox, Option[Double](fSpeed_kts), rMax_nmi, pxPerDegree, maxDist, par))
   }
 }

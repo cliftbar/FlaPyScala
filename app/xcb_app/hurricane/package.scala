@@ -143,8 +143,8 @@ package object hurricaneNws23 {
     */
   def asymmetryFactor(fSpeed_kts:Double, r_nmi:Double, rMax_nmi:Double, angleFromCenter:Double, trackBearing:Double):Double = {
     val to = 1 //conversion factor
-    val phi_r = inflowAngle(r_nmi, rMax_nmi)  // need to figure out direction
-    val phi_rmax = inflowAngle(rMax_nmi, rMax_nmi)  // need to figure out direction
+    val phi_r = inflowAngle(r_nmi, rMax_nmi)
+    val phi_rmax = inflowAngle(rMax_nmi, rMax_nmi)
     val phi_beta = (phi_r - phi_rmax) % 360
     val bearing_shift = (90 - angleFromCenter + trackBearing) % 360
     val beta = (phi_beta + bearing_shift) % 360

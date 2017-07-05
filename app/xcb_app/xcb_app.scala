@@ -15,6 +15,7 @@ import play.api.libs.json._
   */
 @Singleton
 class xcb_app {
+  // Learning test methods/////////////
   var count = 0
   def hello: String = {"Hello xcb_app"}
   def nextCount: Int = {
@@ -25,8 +26,9 @@ class xcb_app {
   def libHello: String = {
     lc.Hello
   }
+  ////////////////////////////////////
 
-  def hurrTest(trackPoints:Seq[hur.TrackPoint], bBox:BoundingBox, fSpeed_kts:Option[Double], rMax_nmi:Double, pxPerDegree:(Int, Int), maxDist:Int, par:Int = -1):String = {
+  def CalculateHurricane(trackPoints:Seq[hur.TrackPoint], bBox:BoundingBox, fSpeed_kts:Option[Double], rMax_nmi:Double, pxPerDegree:(Int, Int), maxDist:Int, par:Int = -1):String = {
     println("In Function")
     println(rMax_nmi)
     println(fSpeed_kts)
@@ -35,9 +37,10 @@ class xcb_app {
     println(time.LocalDateTime.now())
     val grid = new hur.LatLonGrid(bBox.topLatY, bBox.botLatY, bBox.leftLonX, bBox.rightLonX, pxPerDegree._1, pxPerDegree._2)
     val event = new hur.HurricaneEvent(grid, trackPoints.toList, rMax_nmi)
-    //event.CalcTrackpointHeadings()
+
     event.DoCalcs(maxDist, par)
 
+    // Test output
     val writer = new FileWriter("testTrack.txt")
     writer.write("LatY\tLonX\tfspeed_kts\theading\n")
 
@@ -48,6 +51,10 @@ class xcb_app {
     writer.close
     println(time.LocalDateTime.now())
     println("Did test")
+
+    // Create Json return
+    // may want a separate route serving the image
+    // https://stackoverflow.com/questions/31890066/return-11-pixel-image-in-response-play-scala
     case class RetObject(imageUri: String)
     implicit val RetObjectWrites = new Writes[RetObject] {
       def writes(ret: RetObject) = Json.obj(
